@@ -19,10 +19,15 @@ var mc = memjs.Client.create(process.env.MEMCACHIER_SERVERS, {
 // });
 
 io.on("connection", async function(socket) {
+  // console.log("************ socket", socket.request._query);
   console.log(
-    `Vehicle ${socket.request._query.id} connected to Socket ${socket.id}.`
+    `${socket.request._query.type} ${socket.request._query.id} connected to Socket ${socket.id}.`
   );
-  //   console.log("************ socket", socket.request._query.id);
+
+  if (socket.request._query.type === "Controller") {
+    socket.join("controller-room");
+  }
+
   //   console.log("************ socket", typeof socket.request._query.id);
   // On connection save to memcache
   // First argument must be a string
@@ -37,12 +42,11 @@ io.on("connection", async function(socket) {
   // Emits from controller
   socket.on("patch property from control", async (data, cb) => {
     console.log("got the patch", data.id);
-    //save to memcache
     //emit to vehicle
     // get vehicle socket connection with vehicle ID
     try {
       const port = await mc.get(data.id);
-      console.log("************ port1", port.value.toString());
+      // console.log("************ port1", port.value.toString());
 
       io.to(port.value.toString()).emit("patch property to vehicle", data);
       // how can i get acknowledgement from this (no callback)
@@ -51,16 +55,44 @@ io.on("connection", async function(socket) {
     } catch (err) {
       if (err) console.log("************ patch from control err", err);
     }
+    // emit update to all controllers
+    socket.to("controller-room").emit("pending update from controller", data);
   });
 
   socket.on("acknowledge update", async data => {
     try {
-      //id needs to be passed from controller (all controllers need to be in same room) and broadcast to all
-      const port = await mc.get("MAINCONTROLLEREREREERR");
-      console.log("************ data.id", data.id);
-      console.log("************ port2", port.value.toString());
+      // console.log("************ acknowledge to controllers", data);
 
-      io.to(port.value.toString()).emit("acknowledge update to control", data);
+      socket.to("controller-room").emit("acknowledge update to control", data);
+    } catch (err) {
+      if (err) console.log("************ acknowledge update err", err);
+    }
+  });
+
+  socket.on("delete property from control", async (data, cb) => {
+    console.log("got delete", data.id);
+    //emit to vehicle
+    // get vehicle socket connection with vehicle ID
+    try {
+      const port = await mc.get(data.id);
+      console.log("************ port3", port.value.toString());
+
+      io.to(port.value.toString()).emit("delete property to vehicle", data);
+      // how can i get acknowledgement from this (no callback)
+      // this really messed me up
+      cb(null, { msg: "delivered" });
+    } catch (err) {
+      if (err) console.log("************ patch from control err", err);
+    }
+    // emit update to all controllers
+    socket.to("controller-room").emit("pending delete from controller", data);
+  });
+
+  socket.on("acknowledge delete", async data => {
+    try {
+      // console.log("************ acknowledge to controllers", data);
+
+      socket.to("controller-room").emit("acknowledge delete to control", data);
     } catch (err) {
       if (err) console.log("************ acknowledge update err", err);
     }
@@ -80,6 +112,7 @@ io.on("connection", async function(socket) {
   socket.on("disconnect", () => {
     console.log(`Socket ${socket.id} disconnected.`);
     // on disconnect remove id
+    socket.disconnect(true);
   });
 });
 
