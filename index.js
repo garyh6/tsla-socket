@@ -10,6 +10,17 @@ var mc = memjs.Client.create(process.env.MEMCACHIER_SERVERS, {
   password: process.env.MEMCACHE_PASSWORD
 });
 
+// console.log("************ room.length", Object.keys(room).length);
+const logConnections = () => {
+  var srvSockets = io.sockets.sockets;
+  var countsrvSock = Object.keys(srvSockets).length;
+  // console.log("************ srvSockets", srvSockets);
+  console.log("************ countsrvSock", countsrvSock);
+  // var room = io.sockets.adapter.rooms["controller-room"];
+  // console.log("************ controller room", room.length);
+  // console.log("************ controller room", room.sockets);
+};
+
 io.on("connection", async function(socket) {
   // console.log("************ socket", socket.request._query);
   console.log(
@@ -19,6 +30,8 @@ io.on("connection", async function(socket) {
   if (socket.request._query.type === "Controller") {
     socket.join("controller-room");
   }
+
+  logConnections();
 
   //   console.log("************ socket", typeof socket.request._query.id);
   // On connection save to memcache
@@ -67,7 +80,7 @@ io.on("connection", async function(socket) {
     // get vehicle socket connection with vehicle ID
     try {
       const port = await mc.get(data.id);
-      console.log("************ port3", port.value.toString());
+      // console.log("************ port3", port.value.toString());
 
       io.to(port.value.toString()).emit("delete property to vehicle", data);
       // how can i get acknowledgement from this (no callback)
@@ -92,8 +105,8 @@ io.on("connection", async function(socket) {
 
   // STREAMING
   socket.on("new vehicle data", data => {
-    console.log("**********");
-    console.log("new stream socket server", data);
+    // console.log("**********");
+    // console.log("new stream socket server", data);
     socket.to("controller-room").emit("new stream data from vehicle", data);
   });
 
@@ -101,6 +114,7 @@ io.on("connection", async function(socket) {
   socket.on("disconnect", () => {
     console.log(`Socket ${socket.id} disconnected.`);
     // on disconnect remove id from mem?
+    logConnections();
     socket.disconnect(true);
   });
 });
