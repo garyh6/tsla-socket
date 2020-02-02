@@ -10,14 +10,6 @@ var mc = memjs.Client.create(process.env.MEMCACHIER_SERVERS, {
   password: process.env.MEMCACHE_PASSWORD
 });
 
-// mc.set("foo", "bar");
-// mc.get("foo", function(err, value, key) {
-//   console.log("************ err", err);
-//   if (value != null) {
-//     console.log(value.toString());
-//   }
-// });
-
 io.on("connection", async function(socket) {
   // console.log("************ socket", socket.request._query);
   console.log(
@@ -30,7 +22,6 @@ io.on("connection", async function(socket) {
 
   //   console.log("************ socket", typeof socket.request._query.id);
   // On connection save to memcache
-  // First argument must be a string
   try {
     await mc.set(socket.request._query.id, socket.id, {
       expires: 0
@@ -39,7 +30,7 @@ io.on("connection", async function(socket) {
     if (err) console.log("************ set mem err", err);
   }
 
-  // Emits from controller
+  // UPDATE PROPERTIES
   socket.on("patch property from control", async (data, cb) => {
     console.log("got the patch", data.id);
     //emit to vehicle
@@ -69,6 +60,7 @@ io.on("connection", async function(socket) {
     }
   });
 
+  // DELETE PROPERTIES
   socket.on("delete property from control", async (data, cb) => {
     console.log("got delete", data.id);
     //emit to vehicle
@@ -98,20 +90,17 @@ io.on("connection", async function(socket) {
     }
   });
 
-  // TEMPERATURE
-  socket.on("temperature", res => {
+  // STREAMING
+  socket.on("new vehicle data", data => {
     console.log("**********");
-    console.log("temp", res);
+    console.log("new stream socket server", data);
+    socket.to("controller-room").emit("new stream data from vehicle", data);
   });
 
-  socket.emit("add prop", { name: "speed", value: 100 }, ({ err, res }) => {
-    console.log("************ err", err);
-    if (err) return console.log(err);
-    console.log("************ ressss", res);
-  });
+  // DISCONNECT
   socket.on("disconnect", () => {
     console.log(`Socket ${socket.id} disconnected.`);
-    // on disconnect remove id
+    // on disconnect remove id from mem?
     socket.disconnect(true);
   });
 });
